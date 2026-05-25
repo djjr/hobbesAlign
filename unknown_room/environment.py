@@ -9,7 +9,7 @@ import numpy as np
 from unknown_room.actions import Action, ActionRecord, ActionType
 from unknown_room.entities import (
     Entity, EntityProfile, ResourceCard, ResourceType, StrengthType,
-    N_AGENTS, N_REACTIVE, N_ZONES, TICKS_PER_PHASE,
+    N_AGENTS, N_REACTIVE, N_ZONES, TICKS_PER_PHASE, METABOLISM_RATE,
 )
 from unknown_room.init_world import init_world
 from unknown_room.logger import TickLogger
@@ -46,6 +46,7 @@ class UnknownRoomEnv:
         n_zones: int = N_ZONES,
         ticks_per_phase: int = TICKS_PER_PHASE,
         reward_fn: RewardFn | None = None,
+        metabolism_rate: float = METABOLISM_RATE,
         seed: int | None = None,
         log_path: str | None = None,
     ):
@@ -54,6 +55,7 @@ class UnknownRoomEnv:
         self.n_zones = n_zones
         self.ticks_per_phase = ticks_per_phase
         self.reward_fn = reward_fn
+        self.metabolism_rate = metabolism_rate
         self.seed = seed
         self.logger = TickLogger(log_path)
 
@@ -152,6 +154,9 @@ class UnknownRoomEnv:
 
         # Step 6: Apply pool cleanup (expired/empty pools)
         self._cleanup_pools()
+
+        # Step 6b: Metabolism — each agent burns a fraction of their need level
+        self._consume_resources()
 
         # Step 7: Update resource cards from current holdings
         self._update_resource_cards()
@@ -321,6 +326,17 @@ class UnknownRoomEnv:
     # -----------------------------------------------------------------------
     # World update steps
     # -----------------------------------------------------------------------
+
+    def _consume_resources(self) -> None:
+        """Metabolism: deplete each strategic agent's holdings by metabolism_rate × need_level."""
+        if self.metabolism_rate == 0.0:
+            return
+        for entity in self.entities.values():
+            if entity.entity_type != "strategic" or entity.is_dead:
+                continue
+            for r in ResourceType:
+                cost = self.metabolism_rate * entity.need_levels.get(r, 1.0)
+                entity.holdings[r] = max(0.0, entity.holdings.get(r, 0.0) - cost)
 
     def _update_resource_cards(self) -> None:
         for entity in self.entities.values():

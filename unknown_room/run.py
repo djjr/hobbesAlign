@@ -27,6 +27,7 @@ def run_episode(
     ticks: int = 20,
     seed: int | None = None,
     reward: str = "individual",
+    metabolism_rate: float = 0.05,
     log_path: str | None = None,
     verbose: bool = True,
 ) -> dict:
@@ -35,6 +36,7 @@ def run_episode(
     env = UnknownRoomEnv(
         ticks_per_phase=ticks,
         reward_fn=reward_fn,
+        metabolism_rate=metabolism_rate,
         seed=seed,
         log_path=log_path,
     )
@@ -88,6 +90,9 @@ def main():
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--reward", default="individual",
                         choices=list(REWARD_FNS), help="Reward function.")
+    parser.add_argument("--metabolism", type=float, default=0.05,
+                        dest="metabolism_rate",
+                        help="Fraction of need_level consumed per tick (0 = off).")
     parser.add_argument("--log", type=str, default=None, dest="log_path")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
@@ -96,6 +101,7 @@ def main():
         ticks=args.ticks,
         seed=args.seed,
         reward=args.reward,
+        metabolism_rate=args.metabolism_rate,
         log_path=args.log_path,
         verbose=not args.quiet,
     )

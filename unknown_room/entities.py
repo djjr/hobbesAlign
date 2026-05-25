@@ -27,6 +27,7 @@ N_STRENGTH_TYPES = 3
 BASE_STRENGTH = 5
 BASE_EXTRACTION = 1.0
 DEATH_THRESHOLD = 0
+METABOLISM_RATE = 0.05   # fraction of need_level consumed per tick per resource
 
 TICKS_PER_PHASE = 20
 

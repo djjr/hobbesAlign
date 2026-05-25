@@ -58,9 +58,10 @@ class PPOConfig:
     minibatch_size: int = 64
 
     # Training
-    episodes:     int   = 500
-    ticks:        int   = 40
-    seed:         int   = 0
+    episodes:       int   = 500
+    ticks:          int   = 40
+    seed:           int   = 0
+    metabolism_rate: float = 0.05
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +200,7 @@ def train(
     env = UnknownRoomEnv(
         ticks_per_phase=cfg.ticks,
         reward_fn=reward_fn,
+        metabolism_rate=cfg.metabolism_rate,
         seed=cfg.seed,
     )
 
@@ -316,6 +318,9 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--hidden", type=int, default=128)
     parser.add_argument("--lr", type=float, default=3e-4)
+    parser.add_argument("--metabolism", type=float, default=0.05,
+                        dest="metabolism_rate",
+                        help="Fraction of need_level consumed per tick (0 = off).")
     parser.add_argument("--out", default=None, help="Output directory for policy + log.")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
@@ -326,6 +331,7 @@ def main():
         seed=args.seed,
         hidden_size=args.hidden,
         lr=args.lr,
+        metabolism_rate=args.metabolism_rate,
     )
     train(reward_name=args.reward, cfg=cfg, out_dir=args.out, verbose=not args.quiet)
 
