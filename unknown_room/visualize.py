@@ -321,11 +321,63 @@ def _save_or_show(fig, *_, out=None, show=False):
 # CLI
 # ---------------------------------------------------------------------------
 
+def plot_training_curves(
+    training_logs: list[dict],
+    labels: list[str],
+    title: str = "",
+    out: str | None = None,
+    show: bool = False,
+    window: int = 20,
+):
+    """
+    Plot welfare-over-episodes curves from training_log.json files.
+    Each log is a dict with keys: welfare_history, survival_history, reward, config.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    fig.suptitle(title or "Unknown Room — Training Curves", fontsize=13, fontweight="bold")
+    plt.subplots_adjust(wspace=0.3, top=0.88)
+    ax_w, ax_s = axes
+
+    for i, (log, label) in enumerate(zip(training_logs, labels)):
+        color = COMPARISON_COLORS[i % len(COMPARISON_COLORS)]
+        welfare = np.array(log["welfare_history"])
+        survival = np.array(log["survival_history"])
+        episodes = np.arange(len(welfare))
+
+        # Raw (faint)
+        ax_w.plot(episodes, welfare, color=color, alpha=0.2, linewidth=0.8)
+        ax_s.plot(episodes, survival, color=color, alpha=0.2, linewidth=0.8)
+
+        # Rolling mean
+        kernel = np.ones(window) / window
+        smoothed_w = np.convolve(welfare, kernel, mode="same")
+        smoothed_s = np.convolve(survival, kernel, mode="same")
+        ax_w.plot(episodes, smoothed_w, color=color, linewidth=2,
+                  label=f"{label}  (final {welfare[-1]:.2f})")
+        ax_s.plot(episodes, smoothed_s, color=color, linewidth=2, label=label)
+
+    ax_w.set_ylim(0, 1.05)
+    ax_w.set_xlabel("Episode")
+    ax_w.set_ylabel("Collective welfare")
+    ax_w.set_title("Collective Welfare During Training")
+    ax_w.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1))
+    ax_w.legend(fontsize=8)
+
+    ax_s.set_xlabel("Episode")
+    ax_s.set_ylabel("Living agents at end of episode")
+    ax_s.set_title("Agent Survival During Training")
+    ax_s.legend(fontsize=8)
+
+    _save_or_show(fig, out=out, show=show)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Visualize Unknown Room log(s).")
     parser.add_argument("logs", nargs="+", help="One or more JSON log files.")
     parser.add_argument("--labels", nargs="*", help="Labels for comparison mode.")
     parser.add_argument("--title", default="", help="Figure title.")
+    parser.add_argument("--training", action="store_true",
+                        help="Treat logs as training_log.json files (welfare_history arrays).")
     parser.add_argument("--out", default=None, help="Save path (e.g. figures/ep.png).")
     parser.add_argument("--show", action="store_true", help="Display interactively.")
     args = parser.parse_args()
@@ -333,7 +385,10 @@ def main():
     loaded = [load_log(p) for p in args.logs]
     labels = args.labels or [Path(p).stem for p in args.logs]
 
-    if len(loaded) == 1:
+    if args.training:
+        plot_training_curves(loaded, labels, title=args.title,
+                             out=args.out, show=args.show)
+    elif len(loaded) == 1:
         plot_dashboard(loaded[0], title=args.title or labels[0],
                        out=args.out, show=args.show)
     else:

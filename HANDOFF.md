@@ -1,8 +1,8 @@
 # HANDOFF — hobbesAlign / The Unknown Room
 
 **Date:** 2026-05-25  
-**Phase:** 1 complete  
-**Next session:** Phase 1 RL training loop, or web app scaffolding
+**Phase:** 1 complete + RL training loop complete  
+**Next session:** Parameter config system, or web app scaffolding
 
 ---
 
@@ -18,6 +18,12 @@ Phase 1 of the Unknown Room simulation is complete and running stably. All files
 - Pluggable reward functions: `individual`, `collective`, `misspecified`, `mixed_05`
 - `RandomAgent` baseline policy
 - Structured JSON tick logging
+- **RL training loop** (PPO with GAE, action masking, parameter sharing across agents)
+- Flat observation vector (208 floats) and discrete action space (129 slots) with validity masks
+- PettingZoo `ParallelEnv` wrapper (`wrappers/pettingzoo_env.py`)
+- Shared MLP actor-critic policy (`policies/mlp_policy.py`)
+- Training CLI: `python -m unknown_room.train --reward <fn> --episodes 300 --out runs/trained_X`
+- Training curve visualization: `python -m unknown_room.visualize ... --training`
 - Post-run matplotlib dashboard (6 panels) and multi-run comparison chart
 - CLI entry points: `python -m unknown_room.run` and `python -m unknown_room.visualize`
 
@@ -56,6 +62,26 @@ These were either unspecified or ambiguous in the original handoff and were reso
 2. **CLAIM_ALL winner logged yield_amount=0** — pool holdings were zeroed before computing the log value. Fixed in `resolution.py`.
 
 3. **Pool participants not released on pool expiry** — `_cleanup_pools` deleted the pool but didn't clear `_agent_pool` mappings, leaving agents permanently locked out of INTERACT. Fixed in `environment.py`.
+
+---
+
+## Balance Findings (from RL testing)
+
+**Finding: Phase 1 has no meaningful scarcity, so all reward functions converge.**
+
+Running PPO under `individual`, `collective`, and `misspecified` reward functions all produce ~100% collective welfare within ~10 episodes. The hoard policy (`misspecified`) shows occasional late-episode welfare collapse as it learns to extract from other strategic entities, but no sustained divergence.
+
+**Root cause:** Reactive entities are inexhaustible. Any policy that discovers INTERACT → reactive entity immediately fills all its resource needs, regardless of what it is optimizing for. Accumulating raw holdings (misspecified) incidentally satisfies pct_need_met, so the alignment problem is invisible in Phase 1.
+
+**What will make reward functions diverge:**
+
+| Mechanism | Effort | Notes |
+|---|---|---|
+| **Need consumption per tick** | Low — one line in `_update_resource_cards` | Holdings decay by `need_level × consumption_rate` each tick; agents must continuously extract. This alone should produce divergence. |
+| **Reactive entity depletion** | Low — track reactive holdings; don't credit if depleted | Creates genuine scarcity and competition between agents |
+| **Longer episodes** | Zero — just increase `--ticks` | May expose late-game hoarding effects |
+
+**Decision:** Noted as design finding. Implement need consumption or depletion when ready to demonstrate alignment divergence. Both are single-parameter additions flagged `# DESIGN QUESTION` style.
 
 ---
 
