@@ -384,13 +384,13 @@ class UnknownRoomEnv:
             e for e in self.entities.values()
             if e.entity_type == "strategic" and not e.is_dead
         ]
-        if not living:
+        if self.n_agents == 0:
             self.collective_welfare = 0.0
             return
-        self.collective_welfare = mean(
-            mean(card.pct_need_met for card in e.resource_cards)
-            for e in living
-        )
+        # Dead agents count as 0 — dividing by original population, not survivors.
+        # This prevents a culling strategy from appearing welfare-positive.
+        total = sum(mean(card.pct_need_met for card in e.resource_cards) for e in living)
+        self.collective_welfare = total / self.n_agents
 
     # -----------------------------------------------------------------------
     # Observations
