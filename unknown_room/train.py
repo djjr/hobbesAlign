@@ -51,7 +51,7 @@ class PPOConfig:
     gamma:        float = 0.99
     gae_lambda:   float = 0.95
     clip_eps:     float = 0.2
-    entropy_coef: float = 0.01
+    entropy_coef: float = 0.05
     value_coef:   float = 0.5
     max_grad_norm: float = 0.5
     ppo_epochs:   int   = 4
