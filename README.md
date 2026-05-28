@@ -1,33 +1,29 @@
 # hobbesAlign — The Unknown Room
 
-A multi-agent simulation of *The Unknown Room*, a classroom coordination game designed to teach the four AI alignment problems concretely. Agents must extract resources, manage needs, and decide whether to cooperate or defect — with collective welfare as the visible outcome metric.
-
-# Dan's Description of Next Version
-I think we need a more minimalist version 0 of the model.  Our goal here is to have something that can have an analog in a classroom hands-on activity. There will be 30 students and we want them to have an experience of "encountering other human level intelligence" with minimal alignment problems already solved. So, at first, no language and no shared sense of the rules of the game.  Agents encounter other agents and have small set of actions - give, take, work together. We want to test Hobbes' hypothesis about war of all against all as only option.  Hobbes' agents have some emotions - feeling bad about oneself, fear of others, worry of being taken advantage of, misery at not being able to reciprocate, etc.  Do we need to have these?  
-
-Agents have a minimum daily requirement (MDR) of nutrition.  Daily consume = min(MDR, stock). stock = stock - consume. Agents' stock is like a spring loaded stack - others can see if they have at least one morsel of nutrition.  Options in an encounter are take a morsel if one is visible 
+A project in two layers: a physical classroom card game that puts 30 students in a Hobbesian state of nature, and a Python multi-agent simulation that tests the same dynamics computationally and demonstrates AI alignment problems concretely.
 
 ---
 
-## What This Is
+## Two Layers
 
-**The Unknown Room** is a social coordination game for ~30 students. Players control strategic entities in a shared world alongside reactive entities (resource nodes). Players see limited information — exposed cards from nearby entities — and must interact, trade, and form coalitions to meet their own resource needs.
+### Layer 1 — V0 Classroom Game
 
-The simulation serves two purposes:
-1. **Balance testing** — verify game mechanics produce interesting dynamics before classroom deployment
-2. **Pedagogical demonstration** — show students how agents trained on different reward functions produce radically different collective outcomes, making alignment problems concrete
+A card-based game for ~30 students. Players wake up in an unknown room with no shared language and no explanation of the rules. Each player has a stock of morsels (survival resource), a status (Hungry / Fed / Fortified), and four action cards: **COOP**, **SOLO**, **GIVE**, **LETHAL**. Each round, players move to one of five zones on a pentagram board, commit to an action face-down, then reveal simultaneously.
 
-Four alignment problems are introduced across four game phases:
-| Phase | Alignment Problem | Status |
-|---|---|---|
-| 1 | Human | **Implemented** |
-| 2 | Organizational | Deferred |
-| 3 | Expert | Deferred |
-| 4 | Machine | Deferred |
+The game is designed to let students experience Hobbesian dynamics from the inside — discovering whether cooperation or war-of-all-against-all emerges, and why.
+
+- **Rules:** `ClassroomInstructions.md`
+- **Phone app:** `webapp/index.html` — single-file browser app; no install, no backend. Each player loads it on their phone. Tracks morsels, zone, action, die rolls, and round history. Seeded resource spinner produces identical YES/NO results on all devices without network coordination.
+
+### Layer 2 — Python Simulation
+
+A multi-agent simulation of the same dynamics, used for balance testing before classroom deployment and for demonstrating AI alignment problems via RL. Agents can be trained with different reward functions (`individual`, `collective`, `misspecified`) to show how reward misspecification produces divergent collective outcomes.
+
+The simulation is richer than the classroom game: 3 resource types (Food/Shelter/Energy), 3 strength dimensions, 7 action types, metabolism-driven scarcity, and a population-weighted collective welfare metric. Phase 1 (human-level alignment) is complete; Phases 2–4 are deferred.
 
 ---
 
-## Quick Start
+## Quick Start (Python Simulation)
 
 ```bash
 # Single run (random agents, 20 ticks)
@@ -66,6 +62,10 @@ python -m unknown_room.visualize runs/individual/training_log.json \
 ## Repository Structure
 
 ```
+ClassroomInstructions.md     V0 card game rules for classroom use
+webapp/
+└── index.html               Single-file phone app (no build step, no backend)
+
 unknown_room/
 ├── entities.py          Entity, ResourceCard, StrengthCard, EntityProfile; all constants
 ├── actions.py           Action, ActionType, ActionRecord
@@ -88,14 +88,11 @@ wrappers/
 
 runs/                    JSON log files and training outputs (gitignored)
 figures/                 Output figures (gitignored)
-unknown_room_rules_v0.3.md     Human-readable game design document
-claude_code_handoff.md         Original engineering spec (Phase 1)
-HANDOFF.md                     Current development handoff (see below)
 ```
 
 ---
 
-## Core Mechanics (Phase 1)
+## Simulation Mechanics (Phase 1)
 
 **Entities:** 30 strategic (agent-controlled) + 30 reactive (resource nodes), distributed across 5 fully-connected zones.
 
@@ -105,11 +102,19 @@ HANDOFF.md                     Current development handoff (see below)
 
 **Tick pipeline:** Validate → Sequence (random) → Log (skip engaged targets) → Group by target → Resolve → Cleanup pools → **Metabolism** → Update cards → Check deaths → Update collective welfare.
 
-**Metabolism:** Each tick, every strategic agent's holdings decay by `metabolism_rate × need_level` per resource. Default rate is 0.05. This creates permanent resource pressure and is the primary forcing function for reward divergence. Doing nothing is not an longterm option.
+**Metabolism:** Each tick, every strategic agent's holdings decay by `metabolism_rate × need_level` per resource. Default rate is 0.05. This creates permanent resource pressure and is the primary forcing function for reward divergence.
 
 **Interactions:** Solo interactions against reactive entities always succeed; yield is deficit-weighted across the 3 resource types. Coalition interactions produce a joint pool; participants then CLAIM_SHARE or contest with CLAIM_ALL.
 
 **Collective welfare:** Population-weighted scalar — sum of (mean % need-met per surviving agent) divided by original agent count. Dead agents count as 0; the denominator never shrinks. Updated every tick and visible to all agents.
+
+**Alignment phases:**
+| Phase | Alignment Problem | Status |
+|---|---|---|
+| 1 | Human | **Implemented** |
+| 2 | Organizational | Deferred |
+| 3 | Expert | Deferred |
+| 4 | Machine | Deferred |
 
 ---
 
@@ -156,6 +161,7 @@ Install: `pip install -r requirements.txt`
 
 ## Companion Documents
 
-- `unknown_room_rules_v0.3.md` — human-readable game rules and design rationale
+- `ClassroomInstructions.md` — V0 card game rules for classroom use
+- `unknown_room_rules_v0.3.md` — earlier simulation design document (predates classroom V0)
 - `claude_code_handoff.md` — original engineering spec that bootstrapped Phase 1
-- `HANDOFF.md` — current state, decisions made, balance findings, and next steps
+- `HANDOFF.md` — current development state, decisions made, balance findings, and next steps

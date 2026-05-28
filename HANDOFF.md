@@ -1,12 +1,53 @@
 # HANDOFF — hobbesAlign / The Unknown Room
 
-**Date:** 2026-05-27  
-**Phase:** 1 complete + RL training loop complete  
-**Next session:** Parameter config system (WorldConfig dataclass + YAML presets), or web app scaffolding
+**Date:** 2026-05-28  
+**Phase:** 1 complete + RL training loop complete + V0 classroom game complete  
+**Next session:** WorldConfig dataclass + YAML presets (Python sim), or balance tuning
 
 ---
 
-## What Was Built
+## Project Overview
+
+This repo has two related but distinct artifacts:
+
+1. **V0 Classroom Game** — a physical card game for 30 students plus a companion phone web app. Designed to let students experience Hobbesian dynamics from the inside. Rules in `ClassroomInstructions.md`; app in `webapp/index.html`.
+
+2. **Python Simulation** — a multi-agent RL environment (`unknown_room/`) used to balance-test the game mechanics and demonstrate AI alignment problems computationally. Phase 1 complete. The sim is intentionally richer than the classroom game (3 resource types, 7 action types) and will grow richer as Phases 2–4 are added.
+
+The two layers are parallel analogs, not the same model. The classroom game is deliberately simplified for human play; the simulation is the computational version that can be run at scale and with trained agents.
+
+---
+
+## V0 Classroom Game — What Was Built
+
+### ClassroomInstructions.md
+
+Complete rules for a 30-player classroom card game. Key design:
+
+- **Single resource:** morsels (survival currency). Start: 5 per player. MDR: −1/round.
+- **Status:** Hungry (0–2 morsels), Fed (3–5), Fortified (6+). Determines strength die.
+- **Strength dice:** Hungry [1,1,2,2,3,4] · Fed [1,2,3,4,5,6] · Fortified [3,4,4,5,5,6]
+- **Four actions:** COOP (green), SOLO (yellow), GIVE (blue), LETHAL (red)
+- **Board:** pentagram — 5 fully-connected nodes, each with a resource spinner (YES/NO mix)
+- **Encounter resolution:** full payoff matrix — COOP+COOP, COOP+SOLO, COOP+LETHAL, SOLO+LETHAL, GIVE+anything, LETHAL+LETHAL. Lethal encounters resolved by dice contest; COOP/GIVE players roll one die category lower when their opponent plays LETHAL.
+- **Collective welfare:** total morsels ÷ 30, announced each round. Denominator never shrinks.
+- **Elimination:** bag hits 0 after MDR, or lose a LETHAL dice contest. Eliminated players become observers with full information.
+
+### webapp/index.html
+
+Single-file browser app, no build step, no backend. Each player loads it on their phone.
+
+Key features:
+- **Private screen:** morsel count + status, zone picker (color-coded by fecundity), action picker, round history
+- **Public screen:** card flip (CSS 3D) revealing zone + action + resource result; die roll animation; payoff reference table filtered to player's action with active column highlighted
+- **Seeded resource spinner:** deterministic hash of (round, zone) produces identical YES/NO on all devices without network coordination. Each zone has a hardcoded fecundity (Zone 1: 75%, Zone 5: 20%, etc.).
+- **Disadvantage toggle:** appears only for COOP/GIVE players. If opponent played LETHAL, player taps toggle → die drops one category before rolling. LETHAL player's app unchanged — symmetric by design.
+- **Elimination flow:** "Eliminated by LETHAL" button shows morsels given to opponent (net of MDR). Leads to history screen.
+- **localStorage persistence** across browser sessions. Wake Lock API keeps screen on.
+
+---
+
+## Python Simulation — What Was Built
 
 Phase 1 of the Unknown Room simulation is complete and running stably. All files are in `unknown_room/`. The environment runs to completion without crashes across 300-episode RL training runs with 30 strategic + 30 reactive entities.
 
@@ -34,12 +75,12 @@ Phase 1 of the Unknown Room simulation is complete and running stably. All files
 - Phases 2–4 mechanics
 - Offer/negotiation (two-tick sequential exchange)
 - Strength-biased sequencing
-- Web application
+- Simulation web viewer (FastAPI backend + live frontend)
 - Parameter config system (WorldConfig + YAML presets) — *next recommended task*
 
 ---
 
-## Key Design Decisions Made
+## Key Design Decisions (Python Sim)
 
 | Decision | Choice | Rationale |
 |---|---|---|
@@ -107,19 +148,20 @@ Without metabolism (`--metabolism 0`), reactive entities are inexhaustible. Any 
 
 ---
 
-## What to Do Next
+## What to Do Next (Python Sim)
 
 ### Option A — Parameter config system (recommended)
 Create a `WorldConfig` dataclass covering all tunable constants with a YAML preset loader. This makes it easy to:
 - Run the alignment demo at different difficulty levels
 - Save/reproduce experimental configurations
 - Give students access to "scenario presets" without editing code
+- Create a V0-analog preset (single resource type, simplified action space) to shadow the classroom game
 
-### Option B — Web application
-FastAPI backend running the simulation tick-by-tick, served to a React/Svelte frontend via WebSocket. The frontend shows zone state, agent cards, welfare ticker, and event log in real time.
-
-### Option C — Balance tuning
+### Option B — Balance tuning
 Run many episodes with random agents across different seeds. Plot distribution of final welfare, death rates, and pool formation frequency. Identify degenerate cases (mass death, welfare collapse) and tune constants.
+
+### Option C — Simulation web viewer
+FastAPI backend running the simulation tick-by-tick, served to a frontend via WebSocket. Shows zone state, agent cards, welfare ticker, and event log in real time. (Distinct from the classroom webapp, which has no backend.)
 
 ---
 
@@ -168,6 +210,9 @@ python -m unknown_room.visualize runs/individual/training_log.json \
 ## File Map
 
 ```
+ClassroomInstructions.md     V0 card game rules
+webapp/index.html            Phone app for classroom play
+
 unknown_room/
 ├── entities.py          constants, ResourceCard, StrengthCard, Entity, EntityProfile
 ├── actions.py           Action (+ exposed_indices field), ActionType, ActionRecord
