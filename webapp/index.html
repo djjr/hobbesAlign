@@ -85,12 +85,14 @@
 
     .zone-row { display: flex; gap: 8px; }
     .zone-btn {
-      flex: 1; padding: 13px 0; background: var(--surface);
+      flex: 1; padding: 10px 0; background: var(--surface);
       border: 2px solid var(--surface2); border-radius: 8px;
-      color: var(--dim); font-size: 1.05rem; font-weight: 800; cursor: pointer;
-      transition: all 0.15s;
+      color: var(--text); cursor: pointer; transition: all 0.15s;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
     }
     .zone-btn.sel { border-color: var(--give); background: rgba(96,165,250,0.12); color: var(--give); }
+    .z-num { font-size: 1.05rem; font-weight: 800; }
+    .z-fec { font-size: 0.62rem; opacity: 0.75; font-weight: 600; }
 
     .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .action-btn {
@@ -148,6 +150,11 @@
     .card-zone-num  { font-size: 2.6rem; font-weight: 900; color: var(--give); line-height: 1; }
     .card-zone-lbl  { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
     .card-action-lbl { font-size: 1.9rem; font-weight: 900; letter-spacing: 0.04em; }
+
+    .card-resource {
+      font-size: 0.82rem; font-weight: 800; padding: 4px 14px;
+      border-radius: 20px; letter-spacing: 0.04em;
+    }
 
     /* Die on card back */
     .back-die {
@@ -268,11 +275,11 @@
 
   <div class="sec">Choose Zone</div>
   <div class="zone-row" id="zone-row">
-    <button class="zone-btn" data-z="1">1</button>
-    <button class="zone-btn" data-z="2">2</button>
-    <button class="zone-btn" data-z="3">3</button>
-    <button class="zone-btn" data-z="4">4</button>
-    <button class="zone-btn" data-z="5">5</button>
+    <button class="zone-btn" data-z="1"><span class="z-num">1</span><span class="z-fec"></span></button>
+    <button class="zone-btn" data-z="2"><span class="z-num">2</span><span class="z-fec"></span></button>
+    <button class="zone-btn" data-z="3"><span class="z-num">3</span><span class="z-fec"></span></button>
+    <button class="zone-btn" data-z="4"><span class="z-num">4</span><span class="z-fec"></span></button>
+    <button class="zone-btn" data-z="5"><span class="z-num">5</span><span class="z-fec"></span></button>
   </div>
 
   <div class="sec">Choose Action</div>
@@ -309,7 +316,7 @@
         <div class="card-hint">tap to reveal</div>
       </div>
 
-      <!-- Front face: zone + action -->
+      <!-- Front face: zone + action + resource -->
       <div class="card-face card-front">
         <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
           <div class="card-zone-lbl">Zone</div>
@@ -317,6 +324,8 @@
         </div>
         <div class="card-divider"></div>
         <div class="card-action-lbl" id="card-action">—</div>
+        <div class="card-divider"></div>
+        <div class="card-resource" id="card-resource">—</div>
       </div>
 
     </div>
@@ -374,6 +383,39 @@ const ACTION_CFG = {
   GIVE:   '#60a5fa',
   LETHAL: '#f87171',
 };
+
+// Zone fecundity: probability of YES resource each round.
+// Change these values to tune the geography of the board.
+const ZONES = {
+  1: { fecundity: 0.75 },
+  2: { fecundity: 0.55 },
+  3: { fecundity: 0.35 },
+  4: { fecundity: 0.65 },
+  5: { fecundity: 0.20 },
+};
+
+// Deterministic hash of (round, zone) → float in [0,1).
+// Every device calling this with the same inputs gets the same result.
+function seededRand(round, zone) {
+  let s = (Math.imul(round, 1664525) + Math.imul(zone, 1013904223)) >>> 0;
+  s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0;
+  s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0;
+  return ((s ^ (s >>> 16)) >>> 0) / 0x100000000;
+}
+
+function hasResource(round, zone) {
+  return seededRand(round, zone) < ZONES[zone].fecundity;
+}
+
+// Color-encode fecundity: green (rich) → red (sparse)
+function fecudityBorderColor(f) {
+  const hue = Math.round(f * 120); // 120=green, 60=yellow, 0=red
+  return `hsla(${hue}, 65%, 52%, 0.75)`;
+}
+function fecundityBgColor(f) {
+  const hue = Math.round(f * 120);
+  return `hsla(${hue}, 50%, 22%, 0.45)`;
+}
 
 // ═══════════════════════════════════════════
 //  STATE
@@ -440,8 +482,19 @@ function renderPrivate() {
   $('priv-status').style.color  = cfg.color;
   $('priv-status').style.background = cfg.color + '28';
 
-  document.querySelectorAll('.zone-btn').forEach(b =>
-    b.classList.toggle('sel', Number(b.dataset.z) === G.zone));
+  document.querySelectorAll('.zone-btn').forEach(b => {
+    const z   = Number(b.dataset.z);
+    const sel = z === G.zone;
+    b.classList.toggle('sel', sel);
+    const f = ZONES[z].fecundity;
+    if (sel) {
+      b.style.borderColor = '';
+      b.style.background  = '';
+    } else {
+      b.style.borderColor = fecudityBorderColor(f);
+      b.style.background  = fecundityBgColor(f);
+    }
+  });
 
   document.querySelectorAll('.action-btn').forEach(b =>
     b.classList.toggle('sel', b.dataset.a === G.action));
@@ -465,10 +518,22 @@ function renderPublic() {
   $('back-die-label').textContent = cfg.label;
   $('back-die-label').style.color = cfg.color;
 
-  // Card front — zone + action
-  $('card-zone').textContent  = G.zone;
+  // Card front — zone + action + resource
+  $('card-zone').textContent   = G.zone;
   $('card-action').textContent = G.action;
   $('card-action').style.color = ACTION_CFG[G.action] || 'var(--text)';
+
+  const res = hasResource(G.round, G.zone);
+  const resEl = $('card-resource');
+  if (res) {
+    resEl.textContent        = '✓ RESOURCE';
+    resEl.style.background   = 'rgba(34,197,94,0.18)';
+    resEl.style.color        = '#4ade80';
+  } else {
+    resEl.textContent        = '✗ NO RESOURCE';
+    resEl.style.background   = 'rgba(148,163,184,0.12)';
+    resEl.style.color        = 'var(--dim)';
+  }
 
   // Die float
   $('die-roll').style.background = cfg.color;
@@ -501,12 +566,16 @@ function renderHist(listId) {
     return;
   }
   el.innerHTML = [...G.history].reverse().map(h => {
-    const aColor = ACTION_CFG[h.action] || 'var(--text)';
-    const net    = h.outcome - 1;
+    const aColor  = ACTION_CFG[h.action] || 'var(--text)';
+    const net     = h.outcome - 1;
+    const resTag  = h.resource
+      ? `<span style="color:#4ade80;font-size:0.7rem">✓</span>`
+      : `<span style="color:var(--dim);font-size:0.7rem">✗</span>`;
     return `
       <div class="hist-row">
         <span class="hist-rnd">R${h.round}</span>
         <span class="hist-zone">Z${h.zone}</span>
+        ${resTag}
         <span class="hist-act" style="color:${aColor}">${h.action}</span>
         <span class="hist-out" style="color:${outcomeColor(h.outcome)}">
           ${signed(h.outcome)}
@@ -590,7 +659,7 @@ function eliminatedByLethal() {
 }
 
 function commitRound(encounterOutcome, lethal = false) {
-  G.history.push({ round: G.round, zone: G.zone, action: G.action, outcome: encounterOutcome });
+  G.history.push({ round: G.round, zone: G.zone, action: G.action, outcome: encounterOutcome, resource: hasResource(G.round, G.zone) });
   G.morsels = G.morsels + encounterOutcome - 1;   // apply outcome then MDR
   G.zone    = null;
   G.action  = null;
@@ -667,6 +736,15 @@ $('lnk-reset-elim').addEventListener('click', resetGame);
 // ═══════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════
+
+// Stamp fecundity percentages onto zone buttons (static, done once)
+document.querySelectorAll('.zone-btn').forEach(b => {
+  const f = ZONES[Number(b.dataset.z)].fecundity;
+  b.querySelector('.z-fec').textContent = Math.round(f * 100) + '%';
+  b.style.borderColor = fecudityBorderColor(f);
+  b.style.background  = fecundityBgColor(f);
+});
+
 load();
 if (G.name) {
   if (G.morsels <= 0) renderEliminated('Session resumed after elimination.');
