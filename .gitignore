@@ -3,6 +3,6 @@ __pycache__/
 *.pyo
 .DS_Store
 runs/
-figures/
+# figures/
 *.egg-info/
 .env
