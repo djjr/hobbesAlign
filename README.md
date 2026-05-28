@@ -8,7 +8,7 @@ A project in two layers: a physical classroom card game that puts 30 students in
 
 ### Layer 1 — V0 Classroom Game
 
-A card-based game for ~30 students. Players wake up in an unknown room with no shared language and no explanation of the rules. Each player has a stock of morsels (survival resource), a status (Hungry / Fed / Fortified), and four action cards: **COOP**, **SOLO**, **GIVE**, **LETHAL**. Each round, players move to one of five zones on a pentagram board, commit to an action face-down, then reveal simultaneously.
+A [[The HobbesAlign Classroom Game|card-based game]] for ~30 students. Players wake up in an unknown room with no shared language and no explanation of the rules. Each player has a stock of morsels (survival resource), a status (Hungry / Fed / Fortified), and four action cards: **COOP**, **SOLO**, **GIVE**, **LETHAL**. Each round, players move to one of five zones on a pentagram board, commit to an action face-down, then reveal simultaneously.
 
 The game is designed to let students experience Hobbesian dynamics from the inside — discovering whether cooperation or war-of-all-against-all emerges, and why.
 
