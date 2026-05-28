@@ -194,6 +194,17 @@
 
     .die-sub { font-size: 0.72rem; color: var(--dim); }
 
+    .disadv-btn {
+      font-size: 0.72rem; padding: 5px 14px; border-radius: 20px;
+      background: transparent; border: 1px solid var(--surface2);
+      color: var(--dim); cursor: pointer; transition: all 0.15s;
+      margin-top: 2px;
+    }
+    .disadv-btn.on {
+      background: rgba(239,68,68,0.15); border-color: var(--lethal);
+      color: var(--lethal);
+    }
+
     /* Outcome entry */
     .outcome-panel {
       width: 100%; max-width: 280px;
@@ -366,6 +377,7 @@
   <div class="die-float" id="die-float">
     <div class="die-roll" id="die-roll">?</div>
     <div class="die-sub" id="die-sub">tap to roll</div>
+    <button class="disadv-btn" id="btn-disadv" style="display:none">opp. played LETHAL · roll ↓</button>
   </div>
 
   <!-- Payoff reference table -->
@@ -498,7 +510,7 @@ function fecundityBgColor(f) {
 const DEFAULTS = {
   name: '', morsels: 5, round: 1,
   zone: null, action: null,
-  rolled: false, outcome: 0,
+  rolled: false, outcome: 0, disadvantaged: false,
   history: [],
 };
 
@@ -521,6 +533,14 @@ function status(n) {
   if (n <= 2) return 'hungry';
   if (n <= 5) return 'fed';
   return 'fortified';
+}
+
+function effectiveStatus(n, disadvantaged) {
+  const st = status(n);
+  if (!disadvantaged) return st;
+  if (st === 'fortified') return 'fed';
+  if (st === 'fed')       return 'hungry';
+  return 'hungry';
 }
 
 function roll(st) {
@@ -611,18 +631,25 @@ function renderPublic() {
   }
 
   // Die float
+  G.rolled       = false;
+  G.disadvantaged = false;
   $('die-roll').style.background = cfg.color;
   $('die-roll').textContent      = '?';
   $('die-sub').textContent       = 'tap to roll';
   $('die-float').classList.remove('show');
   $('die-roll').classList.remove('spin');
 
+  // Disadvantage toggle — only relevant for COOP / GIVE
+  const disadvBtn = $('btn-disadv');
+  disadvBtn.classList.remove('on');
+  disadvBtn.style.display = (G.action === 'COOP' || G.action === 'GIVE') ? '' : 'none';
+
   // Outcome panel
-  G.rolled  = false;
   G.outcome = 0;
   $('outcome-panel').classList.remove('show');
   $('outcome-num').textContent = '0';
   $('outcome-num').style.color = 'var(--text)';
+  $('btn-eliminated').textContent = `Eliminated by LETHAL · give ${Math.max(0, G.morsels - 1)} to opponent`;
 
   // Payoff table — hidden until flip
   $('ref-wrap').classList.remove('show');
@@ -725,7 +752,7 @@ function renderPayoffTable() {
 
 function doRoll() {
   if (G.rolled) return;
-  const st  = status(G.morsels);
+  const st  = effectiveStatus(G.morsels, G.disadvantaged);
   const die = $('die-roll');
 
   die.classList.add('spin');
@@ -741,7 +768,8 @@ function doRoll() {
       const result = roll(st);
       die.textContent = result;
       die.classList.remove('spin');
-      $('die-sub').textContent = `Rolled ${result}`;
+      const suffix = G.disadvantaged ? ` (${STATUS_CFG[st].label} die ↓)` : '';
+      $('die-sub').textContent = `Rolled ${result}${suffix}`;
       G.rolled = true;
       save();
     }
@@ -826,6 +854,21 @@ $('btn-minus').addEventListener('click', () => adjustOutcome(-1));
 $('btn-plus').addEventListener('click', () => adjustOutcome(+1));
 $('btn-back').addEventListener('click', backToPrivate);
 $('btn-eliminated').addEventListener('click', eliminatedByLethal);
+
+$('btn-disadv').addEventListener('click', e => {
+  e.stopPropagation();
+  if (G.rolled) return;
+  G.disadvantaged = !G.disadvantaged;
+  e.currentTarget.classList.toggle('on', G.disadvantaged);
+  // Update die color to reflect which die will be rolled
+  const st = effectiveStatus(G.morsels, G.disadvantaged);
+  $('die-roll').style.background = STATUS_CFG[st].color;
+  const label = G.disadvantaged
+    ? `${STATUS_CFG[st].label} die (↓ disadvantaged)`
+    : 'tap to roll';
+  $('die-sub').textContent = label;
+  save();
+});
 
 $('lnk-reset').addEventListener('click', resetGame);
 $('lnk-reset-elim').addEventListener('click', resetGame);
