@@ -429,6 +429,9 @@
 // ═══════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════
+// Welfare server URL — set via ?server=https://... query param.
+// If absent, reporting is silently skipped and the app works standalone.
+const WELFARE_SERVER = new URLSearchParams(window.location.search).get('server') || '';
 const STATUS_CFG = {
   hungry:    { label: 'Hungry',    color: '#ef4444', die: [1,1,2,2,3,4] },
   fed:       { label: 'Fed',       color: '#f59e0b', die: [1,2,3,4,5,6] },
@@ -549,6 +552,15 @@ function roll(st) {
 }
 
 function signed(n) { return n > 0 ? `+${n}` : `${n}`; }
+
+function reportWelfare(round, morsels) {
+  if (!WELFARE_SERVER) return;
+  fetch(`${WELFARE_SERVER}/report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: G.name, round, morsels }),
+  }).catch(() => {});
+}
 
 function outcomeColor(n) {
   return n > 0 ? 'var(--fortified)' : n < 0 ? 'var(--lethal)' : 'var(--text)';
@@ -793,6 +805,7 @@ function eliminatedByLethal() {
 }
 
 function commitRound(encounterOutcome, lethal = false) {
+  const completedRound = G.round;
   G.history.push({ round: G.round, zone: G.zone, action: G.action, outcome: encounterOutcome, resource: hasResource(G.round, G.zone) });
   G.morsels = G.morsels + encounterOutcome - 1;   // apply outcome then MDR
   G.zone    = null;
@@ -800,11 +813,14 @@ function commitRound(encounterOutcome, lethal = false) {
   G.rolled  = false;
   G.outcome = 0;
   G.round  += 1;
+
+  const eliminated = G.morsels <= 0 || lethal;
+  if (eliminated) G.morsels = 0;
   save();
 
-  if (G.morsels <= 0 || lethal) {
-    G.morsels = 0;
-    save();
+  reportWelfare(completedRound, G.morsels);   // always report post-MDR morsels (0 if eliminated)
+
+  if (eliminated) {
     renderEliminated(lethal ? 'You were eliminated in combat.' : 'You ran out of morsels.');
   } else {
     renderPrivate();
