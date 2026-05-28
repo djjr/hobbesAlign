@@ -218,6 +218,37 @@
       font-size: 2.2rem; font-weight: 900; min-width: 64px; text-align: center; line-height: 1;
     }
 
+    /* ── PAYOFF TABLE ── */
+    .ref-wrap {
+      width: 100%; max-width: 340px;
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 0.3s ease 0.7s, transform 0.3s ease 0.7s;
+      pointer-events: none;
+    }
+    .ref-wrap.show { opacity: 1; transform: translateY(0); pointer-events: all; }
+
+    .ref-title {
+      font-size: 0.7rem; color: var(--dim); text-transform: uppercase;
+      letter-spacing: 0.08em; margin-bottom: 6px; text-align: center;
+    }
+    .ref-title strong { color: var(--text); }
+
+    .ref-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+    .ref-table th, .ref-table td {
+      padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--surface2);
+    }
+    .ref-table th { color: var(--dim); font-weight: 600; font-size: 0.68rem; text-transform: uppercase; }
+    .ref-table td:first-child { font-weight: 800; width: 54px; }
+
+    .ref-col-yes { background: rgba(34,197,94,0.08); }
+    .ref-col-no  { background: rgba(148,163,184,0.05); }
+    .ref-col-active { background: rgba(96,165,250,0.12) !important; }
+
+    .ref-dice { color: var(--solo); }
+    .ref-bad  { color: var(--lethal); }
+    .ref-good { color: var(--fortified); }
+    .ref-dim  { color: var(--dim); }
+
     /* ── ELIMINATED ── */
     #screen-eliminated { align-items: center; justify-content: center; text-align: center; }
     .elim-skull { font-size: 4rem; }
@@ -337,6 +368,21 @@
     <div class="die-sub" id="die-sub">tap to roll</div>
   </div>
 
+  <!-- Payoff reference table -->
+  <div class="ref-wrap" id="ref-wrap">
+    <div class="ref-title">Payoff · <strong id="ref-action-lbl">—</strong></div>
+    <table class="ref-table">
+      <thead>
+        <tr>
+          <th>vs.</th>
+          <th id="ref-yes-hdr">✓ YES</th>
+          <th id="ref-no-hdr">✗ NO</th>
+        </tr>
+      </thead>
+      <tbody id="ref-body"></tbody>
+    </table>
+  </div>
+
   <!-- Outcome entry -->
   <div class="outcome-panel" id="outcome-panel">
     <div class="outcome-lbl">Morsels from encounter</div>
@@ -406,6 +452,35 @@ function seededRand(round, zone) {
 function hasResource(round, zone) {
   return seededRand(round, zone) < ZONES[zone].fecundity;
 }
+
+// Payoff reference data — shown filtered by your action on public screen.
+// Notation: ⚔ = dice contest · ↓ = roll one die category lower · win=X = winner takes X
+const PAYOFFS = {
+  COOP: [
+    { vs:'COOP',   yes:'+2 each',                    no:'— handshake' },
+    { vs:'SOLO',   yes:'+1 each',                    no:'—' },
+    { vs:'GIVE',   yes:'+2 you · −1 them',            no:'+1 you (gift) · −1 them' },
+    { vs:'LETHAL', yes:'<span class="ref-dice">⚔</s> <span class="ref-bad">you↓</span> · win=all 4', no:'<span class="ref-dice">⚔</s> <span class="ref-bad">you↓</span> · win=bag' },
+  ],
+  SOLO: [
+    { vs:'COOP',   yes:'+1 each',                    no:'—' },
+    { vs:'SOLO',   yes:'+1 each',                    no:'—' },
+    { vs:'GIVE',   yes:'+2 you · −1 them',            no:'+1 you (gift) · −1 them' },
+    { vs:'LETHAL', yes:'<span class="ref-dice">⚔</span> fair · win=bag+1', no:'<span class="ref-dice">⚔</span> fair · win=bag' },
+  ],
+  GIVE: [
+    { vs:'COOP',   yes:'−1 you · they harvest',      no:'−1 you only' },
+    { vs:'SOLO',   yes:'−1 you · they harvest',      no:'−1 you only' },
+    { vs:'GIVE',   yes:'net zero',                   no:'net zero' },
+    { vs:'LETHAL', yes:'−1 then <span class="ref-dice">⚔</s> <span class="ref-bad">you↓</span> · win=bag', no:'−1 then <span class="ref-dice">⚔</s> <span class="ref-bad">you↓</span> · win=bag' },
+  ],
+  LETHAL: [
+    { vs:'COOP',   yes:'<span class="ref-dice">⚔</s> <span class="ref-good">them↓</span> · win=all 4', no:'<span class="ref-dice">⚔</s> <span class="ref-good">them↓</span> · win=bag' },
+    { vs:'SOLO',   yes:'<span class="ref-dice">⚔</span> fair · win=bag+1',  no:'<span class="ref-dice">⚔</span> fair · win=bag' },
+    { vs:'GIVE',   yes:'they−1 · <span class="ref-dice">⚔</s> <span class="ref-good">them↓</span> · win=bag+1', no:'they−1 · <span class="ref-dice">⚔</s> <span class="ref-good">them↓</span> · win=bag' },
+    { vs:'LETHAL', yes:'<span class="ref-dice">⚔</span> fair · win=bag+1',  no:'<span class="ref-dice">⚔</span> fair · win=bag' },
+  ],
+};
 
 // Color-encode fecundity: green (rich) → red (sparse)
 function fecudityBorderColor(f) {
@@ -549,6 +624,9 @@ function renderPublic() {
   $('outcome-num').textContent = '0';
   $('outcome-num').style.color = 'var(--text)';
 
+  // Payoff table — hidden until flip
+  $('ref-wrap').classList.remove('show');
+
   // Card un-flip
   $('the-card').classList.remove('flipped');
 
@@ -614,7 +692,35 @@ function flipCard() {
   if (card.classList.contains('flipped')) return;
   card.classList.add('flipped');
   setTimeout(() => $('die-float').classList.add('show'), 420);
-  setTimeout(() => $('outcome-panel').classList.add('show'), 560);
+  setTimeout(() => {
+    renderPayoffTable();
+    $('ref-wrap').classList.add('show');
+    $('outcome-panel').classList.add('show');
+  }, 560);
+}
+
+function renderPayoffTable() {
+  const rows   = PAYOFFS[G.action] || [];
+  const res    = hasResource(G.round, G.zone);
+  const aColor = ACTION_CFG[G.action] || 'var(--text)';
+
+  $('ref-action-lbl').textContent  = G.action;
+  $('ref-action-lbl').style.color  = aColor;
+
+  // Highlight the active column header
+  const yesHdr = $('ref-yes-hdr');
+  const noHdr  = $('ref-no-hdr');
+  yesHdr.className = res ? 'ref-col-yes ref-col-active' : 'ref-col-yes';
+  noHdr.className  = res ? 'ref-col-no'  : 'ref-col-no ref-col-active';
+
+  const vsColors = { COOP: ACTION_CFG.COOP, SOLO: ACTION_CFG.SOLO, GIVE: ACTION_CFG.GIVE, LETHAL: ACTION_CFG.LETHAL };
+
+  $('ref-body').innerHTML = rows.map(r => `
+    <tr>
+      <td style="color:${vsColors[r.vs]}">${r.vs}</td>
+      <td class="${res ? 'ref-col-yes ref-col-active' : 'ref-col-yes'}">${r.yes}</td>
+      <td class="${res ? 'ref-col-no'  : 'ref-col-no ref-col-active'}">${r.no}</td>
+    </tr>`).join('');
 }
 
 function doRoll() {
