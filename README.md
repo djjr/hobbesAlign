@@ -23,6 +23,41 @@ The simulation is richer than the classroom game: 3 resource types (Food/Shelter
 
 ---
 
+## Classroom Setup
+
+Everything runs from the facilitator's laptop. Students need no install — they open one URL on their phones.
+
+**1. Find your laptop's local IP:**
+```bash
+ipconfig getifaddr en0
+```
+This gives you something like `192.168.1.42`. All devices must be on the same WiFi.
+
+**2. Start the welfare server and webapp server (two terminals):**
+```bash
+# Terminal 1 — welfare monitor
+cd welfare_server && uvicorn server:app --host 0.0.0.0 --port 8000
+
+# Terminal 2 — webapp
+cd webapp && python3 -m http.server 3000
+```
+
+**3. Share one URL with students:**
+```
+http://192.168.1.42:3000?server=http://192.168.1.42:8000
+```
+Replace `192.168.1.42` with your actual IP. Students open this on their phones — that's it.
+
+**4. Open the facilitator dashboard:**
+```
+http://192.168.1.42:8000
+```
+Shows collective welfare, per-round history, and per-player morsel counts, updating every 4 seconds. Reset button clears state between games.
+
+> **Note:** Some campus networks block device-to-device traffic. If students can't reach your laptop, deploy the welfare server to Railway or Render (see `welfare_server/server.py` for instructions) and use the deployed URL as the `?server=` param instead.
+
+---
+
 ## Quick Start (Python Simulation)
 
 ```bash
