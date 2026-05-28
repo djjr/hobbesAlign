@@ -2,6 +2,11 @@
 
 A multi-agent simulation of *The Unknown Room*, a classroom coordination game designed to teach the four AI alignment problems concretely. Agents must extract resources, manage needs, and decide whether to cooperate or defect — with collective welfare as the visible outcome metric.
 
+# Dan's Description of Next Version
+I think we need a more minimalist version 0 of the model.  Our goal here is to have something that can have an analog in a classroom hands-on activity. There will be 30 students and we want them to have an experience of "encountering other human level intelligence" with minimal alignment problems already solved. So, at first, no language and no shared sense of the rules of the game.  Agents encounter other agents and have small set of actions - give, take, work together. We want to test Hobbes' hypothesis about war of all against all as only option.  Hobbes' agents have some emotions - feeling bad about oneself, fear of others, worry of being taken advantage of, misery at not being able to reciprocate, etc.  Do we need to have these?  
+
+Agents have a minimum daily requirement (MDR) of nutrition.  Daily consume = min(MDR, stock). stock = stock - consume. Agents' stock is like a spring loaded stack - others can see if they have at least one morsel of nutrition.  Options in an encounter are take a morsel if one is visible 
+
 ---
 
 ## What This Is
@@ -100,7 +105,7 @@ HANDOFF.md                     Current development handoff (see below)
 
 **Tick pipeline:** Validate → Sequence (random) → Log (skip engaged targets) → Group by target → Resolve → Cleanup pools → **Metabolism** → Update cards → Check deaths → Update collective welfare.
 
-**Metabolism:** Each tick, every strategic agent's holdings decay by `metabolism_rate × need_level` per resource. Default rate is 0.05. This creates permanent resource pressure and is the primary forcing function for reward divergence.
+**Metabolism:** Each tick, every strategic agent's holdings decay by `metabolism_rate × need_level` per resource. Default rate is 0.05. This creates permanent resource pressure and is the primary forcing function for reward divergence. Doing nothing is not an longterm option.
 
 **Interactions:** Solo interactions against reactive entities always succeed; yield is deficit-weighted across the 3 resource types. Coalition interactions produce a joint pool; participants then CLAIM_SHARE or contest with CLAIM_ALL.
 

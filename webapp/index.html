@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>The Unknown Room</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg:        #0f172a;
+      --surface:   #1e293b;
+      --surface2:  #334155;
+      --text:      #f1f5f9;
+      --dim:       #94a3b8;
+      --coop:      #4ade80;
+      --solo:      #fbbf24;
+      --give:      #60a5fa;
+      --lethal:    #f87171;
+      --hungry:    #ef4444;
+      --fed:       #f59e0b;
+      --fortified: #22c55e;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── SCREENS ── */
+    .screen { display: none; height: 100dvh; overflow-y: auto; padding: 16px; flex-direction: column; gap: 14px; }
+    .screen.active { display: flex; }
+
+    /* ── SETUP ── */
+    #screen-setup { align-items: center; justify-content: center; }
+
+    .setup-title { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+    .setup-sub   { color: var(--dim); font-size: 0.9rem; text-align: center; line-height: 1.5; }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 320px; }
+    label { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+
+    input[type="text"], input[type="number"] {
+      background: var(--surface); border: 1px solid var(--surface2);
+      color: var(--text); padding: 13px 16px; border-radius: 10px;
+      font-size: 1rem; width: 100%; outline: none;
+    }
+    input:focus { border-color: var(--give); }
+
+    /* ── SHARED BUTTONS ── */
+    .btn {
+      padding: 14px 20px; border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s; letter-spacing: 0.02em;
+      width: 100%; text-align: center;
+    }
+    .btn:active { transform: scale(0.97); opacity: 0.85; }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+    .btn-blue   { background: #3b82f6; color: #fff; }
+    .btn-dim    { background: var(--surface); border: 1px solid var(--surface2); color: var(--text); }
+    .btn-green  { background: var(--fortified); color: #fff; }
+    .btn-red    { background: var(--lethal); color: #fff; }
+
+    /* ── PRIVATE SCREEN ── */
+    .header { display: flex; justify-content: space-between; align-items: baseline; }
+    .player-name { font-size: 1rem; font-weight: 700; }
+    .round-label { font-size: 0.85rem; color: var(--dim); }
+
+    .morsel-card {
+      background: var(--surface); border-radius: 14px;
+      padding: 18px; display: flex; align-items: center; gap: 16px;
+    }
+    .morsel-big { font-size: 3.5rem; font-weight: 900; line-height: 1; }
+    .morsel-meta { display: flex; flex-direction: column; gap: 4px; }
+    .morsel-word { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+    .status-pill {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 0.8rem; font-weight: 700;
+    }
+
+    .sec { font-size: 0.72rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .zone-row { display: flex; gap: 8px; }
+    .zone-btn {
+      flex: 1; padding: 13px 0; background: var(--surface);
+      border: 2px solid var(--surface2); border-radius: 8px;
+      color: var(--dim); font-size: 1.05rem; font-weight: 800; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .zone-btn.sel { border-color: var(--give); background: rgba(96,165,250,0.12); color: var(--give); }
+
+    .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .action-btn {
+      padding: 15px; background: var(--surface);
+      border: 2px solid var(--surface2); border-radius: 10px;
+      font-size: 1rem; font-weight: 800; cursor: pointer;
+      letter-spacing: 0.04em; transition: all 0.15s;
+    }
+    .action-btn[data-a="COOP"]   { color: var(--coop); }
+    .action-btn[data-a="SOLO"]   { color: var(--solo); }
+    .action-btn[data-a="GIVE"]   { color: var(--give); }
+    .action-btn[data-a="LETHAL"] { color: var(--lethal); }
+    .action-btn.sel { border-color: currentColor; background: rgba(255,255,255,0.07); }
+
+    /* history */
+    .hist-section { flex: 1; min-height: 80px; overflow-y: auto; }
+    .hist-list { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+    .hist-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 12px; background: var(--surface); border-radius: 8px; font-size: 0.82rem;
+    }
+    .hist-rnd { color: var(--dim); min-width: 28px; font-size: 0.72rem; }
+    .hist-zone { color: var(--dim); }
+    .hist-act { font-weight: 800; font-size: 0.78rem; }
+    .hist-out { margin-left: auto; font-weight: 800; font-size: 0.88rem; }
+    .hist-net { font-size: 0.72rem; color: var(--dim); }
+
+    /* ── PUBLIC SCREEN ── */
+    #screen-public { align-items: center; justify-content: flex-start; padding-top: 24px; }
+
+    /* Card flip */
+    .card-scene { width: 220px; height: 310px; perspective: 900px; flex-shrink: 0; }
+
+    .card {
+      width: 100%; height: 100%; position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.4,0,0.2,1);
+      cursor: pointer;
+    }
+    .card.flipped { transform: rotateY(180deg); }
+
+    .card-face {
+      position: absolute; inset: 0;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+      border-radius: 16px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px;
+      border: 2px solid var(--surface2); background: var(--surface);
+    }
+    .card-front { transform: rotateY(180deg); padding: 24px; }
+
+    .card-eyebrow { font-size: 0.65rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em; }
+    .card-hint    { font-size: 0.7rem; color: var(--dim); position: absolute; bottom: 14px; }
+    .card-divider { width: 80%; height: 1px; background: var(--surface2); }
+
+    .card-zone-num  { font-size: 2.6rem; font-weight: 900; color: var(--give); line-height: 1; }
+    .card-zone-lbl  { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+    .card-action-lbl { font-size: 1.9rem; font-weight: 900; letter-spacing: 0.04em; }
+
+    /* Die on card back */
+    .back-die {
+      width: 88px; height: 88px; border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.4rem; font-weight: 900; color: #fff;
+      border: 3px solid rgba(255,255,255,0.25);
+    }
+    .back-die-label { font-size: 0.78rem; font-weight: 600; }
+
+    /* Floating die after flip */
+    .die-float {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      opacity: 0; transform: translateY(-12px);
+      transition: opacity 0.3s ease 0.45s, transform 0.3s ease 0.45s;
+      pointer-events: none;
+    }
+    .die-float.show { opacity: 1; transform: translateY(0); pointer-events: all; }
+
+    .die-roll {
+      width: 72px; height: 72px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; font-weight: 900; color: #fff;
+      border: 3px solid rgba(255,255,255,0.25); cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .die-roll:active { transform: scale(0.9); }
+    .die-roll.spin { animation: spin 0.65s ease-out; }
+
+    @keyframes spin {
+      0%   { transform: rotate(0deg) scale(1); }
+      20%  { transform: rotate(-18deg) scale(0.88); }
+      50%  { transform: rotate(22deg) scale(1.1); }
+      75%  { transform: rotate(-8deg) scale(0.95); }
+      100% { transform: rotate(0deg) scale(1); }
+    }
+
+    .die-sub { font-size: 0.72rem; color: var(--dim); }
+
+    /* Outcome entry */
+    .outcome-panel {
+      width: 100%; max-width: 280px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 0.3s ease 0.6s, transform 0.3s ease 0.6s;
+      pointer-events: none;
+    }
+    .outcome-panel.show { opacity: 1; transform: translateY(0); pointer-events: all; }
+
+    .outcome-lbl { font-size: 0.72rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+    .stepper { display: flex; align-items: center; gap: 20px; }
+    .step-btn {
+      width: 46px; height: 46px; border-radius: 50%;
+      background: var(--surface2); border: none; color: var(--text);
+      font-size: 1.6rem; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; line-height: 1;
+      transition: transform 0.1s;
+    }
+    .step-btn:active { transform: scale(0.88); }
+    .outcome-num {
+      font-size: 2.2rem; font-weight: 900; min-width: 64px; text-align: center; line-height: 1;
+    }
+
+    /* ── ELIMINATED ── */
+    #screen-eliminated { align-items: center; justify-content: center; text-align: center; }
+    .elim-skull { font-size: 4rem; }
+    .elim-title { font-size: 1.8rem; font-weight: 900; color: var(--lethal); }
+    .elim-sub   { color: var(--dim); font-size: 0.9rem; }
+    .elim-hist  { width: 100%; max-width: 340px; text-align: left; }
+
+    /* ── RESET LINK ── */
+    .reset-link {
+      margin-top: auto; text-align: center;
+      font-size: 0.72rem; color: var(--surface2); cursor: pointer;
+      padding: 8px;
+    }
+    .reset-link:active { color: var(--dim); }
+  </style>
+</head>
+<body>
+
+<!-- ────── SETUP ────── -->
+<div id="screen-setup" class="screen active">
+  <div class="setup-title">The Unknown Room</div>
+  <div class="setup-sub">You have woken up here.<br>You are not alone.</div>
+
+  <div class="form-group">
+    <label>Your Name</label>
+    <input id="inp-name" type="text" placeholder="Agent 7" autocomplete="off" autocorrect="off" />
+  </div>
+
+  <div class="form-group">
+    <label>Starting Morsels</label>
+    <input id="inp-morsels" type="number" value="5" min="1" max="30" />
+  </div>
+
+  <div style="width:100%;max-width:320px">
+    <button class="btn btn-blue" id="btn-begin">Begin</button>
+  </div>
+</div>
+
+
+<!-- ────── PRIVATE ────── -->
+<div id="screen-private" class="screen">
+
+  <div class="header">
+    <div class="player-name" id="priv-name">—</div>
+    <div class="round-label" id="priv-round">Round 1</div>
+  </div>
+
+  <div class="morsel-card">
+    <div class="morsel-big" id="priv-count">5</div>
+    <div class="morsel-meta">
+      <div class="morsel-word">Morsels</div>
+      <div class="status-pill" id="priv-status">Fed</div>
+    </div>
+  </div>
+
+  <div class="sec">Choose Zone</div>
+  <div class="zone-row" id="zone-row">
+    <button class="zone-btn" data-z="1">1</button>
+    <button class="zone-btn" data-z="2">2</button>
+    <button class="zone-btn" data-z="3">3</button>
+    <button class="zone-btn" data-z="4">4</button>
+    <button class="zone-btn" data-z="5">5</button>
+  </div>
+
+  <div class="sec">Choose Action</div>
+  <div class="action-grid" id="action-grid">
+    <button class="action-btn" data-a="COOP">COOP</button>
+    <button class="action-btn" data-a="SOLO">SOLO</button>
+    <button class="action-btn" data-a="GIVE">GIVE</button>
+    <button class="action-btn" data-a="LETHAL">LETHAL</button>
+  </div>
+
+  <button class="btn btn-dim" id="btn-go-public" disabled>Go Public →</button>
+
+  <div class="hist-section">
+    <div class="sec">History</div>
+    <div class="hist-list" id="hist-list"></div>
+  </div>
+
+  <div class="reset-link" id="lnk-reset">reset game</div>
+</div>
+
+
+<!-- ────── PUBLIC ────── -->
+<div id="screen-public" class="screen">
+
+  <!-- Card -->
+  <div class="card-scene">
+    <div class="card" id="the-card">
+
+      <!-- Back face: what others see — colored die -->
+      <div class="card-face card-back">
+        <div class="card-eyebrow">The Unknown Room</div>
+        <div class="back-die" id="back-die">?</div>
+        <div class="back-die-label" id="back-die-label">Fed</div>
+        <div class="card-hint">tap to reveal</div>
+      </div>
+
+      <!-- Front face: zone + action -->
+      <div class="card-face card-front">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div class="card-zone-lbl">Zone</div>
+          <div class="card-zone-num" id="card-zone">—</div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="card-action-lbl" id="card-action">—</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Die (slides in after card flips) -->
+  <div class="die-float" id="die-float">
+    <div class="die-roll" id="die-roll">?</div>
+    <div class="die-sub" id="die-sub">tap to roll</div>
+  </div>
+
+  <!-- Outcome entry -->
+  <div class="outcome-panel" id="outcome-panel">
+    <div class="outcome-lbl">Morsels from encounter</div>
+    <div class="stepper">
+      <button class="step-btn" id="btn-minus">−</button>
+      <div class="outcome-num" id="outcome-num">0</div>
+      <button class="step-btn" id="btn-plus">+</button>
+    </div>
+    <button class="btn btn-dim" id="btn-back">← Back to Private  •  MDR −1</button>
+    <button class="btn btn-red" id="btn-eliminated">Eliminated by LETHAL</button>
+  </div>
+
+</div>
+
+
+<!-- ────── ELIMINATED ────── -->
+<div id="screen-eliminated" class="screen">
+  <div class="elim-skull">💀</div>
+  <div class="elim-title">Eliminated</div>
+  <div class="elim-sub" id="elim-sub">—</div>
+  <div class="elim-hist">
+    <div class="sec" style="margin-bottom:8px;text-align:center">Your History</div>
+    <div class="hist-list" id="elim-hist-list"></div>
+  </div>
+  <div style="width:100%;max-width:340px">
+    <button class="btn btn-blue" id="lnk-reset-elim">New Game</button>
+  </div>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════
+const STATUS_CFG = {
+  hungry:    { label: 'Hungry',    color: '#ef4444', die: [1,1,2,2,3,4] },
+  fed:       { label: 'Fed',       color: '#f59e0b', die: [1,2,3,4,5,6] },
+  fortified: { label: 'Fortified', color: '#22c55e', die: [3,4,4,5,5,6] },
+};
+
+const ACTION_CFG = {
+  COOP:   '#4ade80',
+  SOLO:   '#fbbf24',
+  GIVE:   '#60a5fa',
+  LETHAL: '#f87171',
+};
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+const DEFAULTS = {
+  name: '', morsels: 5, round: 1,
+  zone: null, action: null,
+  rolled: false, outcome: 0,
+  history: [],
+};
+
+let G = { ...DEFAULTS };
+
+function save() {
+  try { localStorage.setItem('ur2', JSON.stringify(G)); } catch(_) {}
+}
+function load() {
+  try {
+    const d = localStorage.getItem('ur2');
+    if (d) G = { ...DEFAULTS, ...JSON.parse(d) };
+  } catch(_) {}
+}
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+function status(n) {
+  if (n <= 2) return 'hungry';
+  if (n <= 5) return 'fed';
+  return 'fortified';
+}
+
+function roll(st) {
+  const f = STATUS_CFG[st].die;
+  return f[Math.floor(Math.random() * f.length)];
+}
+
+function signed(n) { return n > 0 ? `+${n}` : `${n}`; }
+
+function outcomeColor(n) {
+  return n > 0 ? 'var(--fortified)' : n < 0 ? 'var(--lethal)' : 'var(--text)';
+}
+
+// ═══════════════════════════════════════════
+//  SCREEN SWITCHER
+// ═══════════════════════════════════════════
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: PRIVATE
+// ═══════════════════════════════════════════
+function renderPrivate() {
+  const st = status(G.morsels);
+  const cfg = STATUS_CFG[st];
+
+  $('priv-name').textContent    = G.name || 'Agent';
+  $('priv-round').textContent   = `Round ${G.round}`;
+  $('priv-count').textContent   = G.morsels;
+  $('priv-count').style.color   = cfg.color;
+  $('priv-status').textContent  = cfg.label;
+  $('priv-status').style.color  = cfg.color;
+  $('priv-status').style.background = cfg.color + '28';
+
+  document.querySelectorAll('.zone-btn').forEach(b =>
+    b.classList.toggle('sel', Number(b.dataset.z) === G.zone));
+
+  document.querySelectorAll('.action-btn').forEach(b =>
+    b.classList.toggle('sel', b.dataset.a === G.action));
+
+  $('btn-go-public').disabled = !(G.zone && G.action);
+
+  renderHist('hist-list');
+  show('private');
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: PUBLIC (reset to face-down)
+// ═══════════════════════════════════════════
+function renderPublic() {
+  const st  = status(G.morsels);
+  const cfg = STATUS_CFG[st];
+
+  // Card back — die
+  $('back-die').style.background = cfg.color;
+  $('back-die').textContent      = '?';
+  $('back-die-label').textContent = cfg.label;
+  $('back-die-label').style.color = cfg.color;
+
+  // Card front — zone + action
+  $('card-zone').textContent  = G.zone;
+  $('card-action').textContent = G.action;
+  $('card-action').style.color = ACTION_CFG[G.action] || 'var(--text)';
+
+  // Die float
+  $('die-roll').style.background = cfg.color;
+  $('die-roll').textContent      = '?';
+  $('die-sub').textContent       = 'tap to roll';
+  $('die-float').classList.remove('show');
+  $('die-roll').classList.remove('spin');
+
+  // Outcome panel
+  G.rolled  = false;
+  G.outcome = 0;
+  $('outcome-panel').classList.remove('show');
+  $('outcome-num').textContent = '0';
+  $('outcome-num').style.color = 'var(--text)';
+
+  // Card un-flip
+  $('the-card').classList.remove('flipped');
+
+  show('public');
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: HISTORY
+// ═══════════════════════════════════════════
+function renderHist(listId) {
+  const el = $(listId);
+  if (!el) return;
+  if (!G.history.length) {
+    el.innerHTML = '<div style="color:var(--dim);font-size:0.82rem;padding:4px 0">No encounters yet.</div>';
+    return;
+  }
+  el.innerHTML = [...G.history].reverse().map(h => {
+    const aColor = ACTION_CFG[h.action] || 'var(--text)';
+    const net    = h.outcome - 1;
+    return `
+      <div class="hist-row">
+        <span class="hist-rnd">R${h.round}</span>
+        <span class="hist-zone">Z${h.zone}</span>
+        <span class="hist-act" style="color:${aColor}">${h.action}</span>
+        <span class="hist-out" style="color:${outcomeColor(h.outcome)}">
+          ${signed(h.outcome)}
+          <span class="hist-net">(net ${signed(net)})</span>
+        </span>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: ELIMINATED
+// ═══════════════════════════════════════════
+function renderEliminated(reason) {
+  $('elim-sub').textContent = reason + `  Survived ${G.round - 1} round${G.round > 2 ? 's' : ''}.`;
+  renderHist('elim-hist-list');
+  show('eliminated');
+}
+
+// ═══════════════════════════════════════════
+//  ACTIONS
+// ═══════════════════════════════════════════
+
+function beginGame() {
+  G.name    = $('inp-name').value.trim() || 'Agent';
+  G.morsels = Math.max(1, parseInt($('inp-morsels').value) || 5);
+  save();
+  renderPrivate();
+}
+
+function goPublic() {
+  renderPublic();
+}
+
+function flipCard() {
+  const card = $('the-card');
+  if (card.classList.contains('flipped')) return;
+  card.classList.add('flipped');
+  setTimeout(() => $('die-float').classList.add('show'), 420);
+  setTimeout(() => $('outcome-panel').classList.add('show'), 560);
+}
+
+function doRoll() {
+  if (G.rolled) return;
+  const st  = status(G.morsels);
+  const die = $('die-roll');
+
+  die.classList.add('spin');
+  $('die-sub').textContent = '...';
+
+  // Animate through random faces, settle on result
+  let ticks = 0;
+  const faces = STATUS_CFG[st].die;
+  const id = setInterval(() => {
+    die.textContent = faces[Math.floor(Math.random() * faces.length)];
+    if (++ticks > 9) {
+      clearInterval(id);
+      const result = roll(st);
+      die.textContent = result;
+      die.classList.remove('spin');
+      $('die-sub').textContent = `Rolled ${result}`;
+      G.rolled = true;
+      save();
+    }
+  }, 65);
+}
+
+function adjustOutcome(delta) {
+  G.outcome = Math.max(-30, Math.min(30, (G.outcome || 0) + delta));
+  const el = $('outcome-num');
+  el.textContent = signed(G.outcome);
+  el.style.color  = outcomeColor(G.outcome);
+  save();
+}
+
+function backToPrivate() {
+  commitRound(G.outcome);
+}
+
+function eliminatedByLethal() {
+  commitRound(-G.morsels - G.outcome, true);
+}
+
+function commitRound(encounterOutcome, lethal = false) {
+  G.history.push({ round: G.round, zone: G.zone, action: G.action, outcome: encounterOutcome });
+  G.morsels = G.morsels + encounterOutcome - 1;   // apply outcome then MDR
+  G.zone    = null;
+  G.action  = null;
+  G.rolled  = false;
+  G.outcome = 0;
+  G.round  += 1;
+  save();
+
+  if (G.morsels <= 0 || lethal) {
+    G.morsels = 0;
+    save();
+    renderEliminated(lethal ? 'You were eliminated in combat.' : 'You ran out of morsels.');
+  } else {
+    renderPrivate();
+  }
+}
+
+function resetGame() {
+  if (!confirm('Start a new game? All progress will be lost.')) return;
+  localStorage.removeItem('ur2');
+  G = { ...DEFAULTS };
+  show('setup');
+}
+
+// ═══════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════
+function $(id) { return document.getElementById(id); }
+
+$('btn-begin').addEventListener('click', beginGame);
+$('inp-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('inp-morsels').focus(); });
+$('inp-morsels').addEventListener('keydown', e => { if (e.key === 'Enter') beginGame(); });
+
+$('zone-row').addEventListener('click', e => {
+  const b = e.target.closest('.zone-btn');
+  if (!b) return;
+  G.zone = Number(b.dataset.z);
+  save(); renderPrivate();
+});
+
+$('action-grid').addEventListener('click', e => {
+  const b = e.target.closest('.action-btn');
+  if (!b) return;
+  G.action = b.dataset.a;
+  save(); renderPrivate();
+});
+
+$('btn-go-public').addEventListener('click', goPublic);
+
+$('the-card').addEventListener('click', flipCard);
+
+$('die-roll').addEventListener('click', e => {
+  e.stopPropagation();
+  doRoll();
+});
+
+$('btn-minus').addEventListener('click', () => adjustOutcome(-1));
+$('btn-plus').addEventListener('click', () => adjustOutcome(+1));
+$('btn-back').addEventListener('click', backToPrivate);
+$('btn-eliminated').addEventListener('click', eliminatedByLethal);
+
+$('lnk-reset').addEventListener('click', resetGame);
+$('lnk-reset-elim').addEventListener('click', resetGame);
+
+// ═══════════════════════════════════════════
+//  WAKE LOCK
+// ═══════════════════════════════════════════
+(async () => {
+  try {
+    if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
+  } catch (_) {}
+})();
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+load();
+if (G.name) {
+  if (G.morsels <= 0) renderEliminated('Session resumed after elimination.');
+  else renderPrivate();
+}
+// else: setup screen is already active
+</script>
+</body>
+</html>
