@@ -3,3 +3,5 @@ matplotlib>=3.7
 torch>=2.0
 gymnasium>=0.29
 pettingzoo>=1.24
+fastapi>=0.111
+uvicorn[standard]>=0.29
